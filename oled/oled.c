@@ -1054,7 +1054,7 @@ void oled_init() {
 }
 
 /**
- * @brief 显示二进制数 todo
+ * @brief 显示二进制数 stable
  * 
  * @param x 
  * @param y 
@@ -1094,7 +1094,7 @@ void oled_show_binary_number(u8 x, u8 y, uint32_t num, u8 len) {
 }
 
 /**
- * @brief 显示十六进制数 todo
+ * @brief 显示十六进制数 stable
  * 
  * @param x 
  * @param y 
