@@ -1,8 +1,8 @@
 #include "oled.h"
 // -32就可以得到对应的字符在数组中的位置 适用于水平和页寻址模式
 
-static uint32_t scl_pin;
-static uint32_t sda_pin;
+static uint16_t scl_pin;
+static uint16_t sda_pin;
 
 void set_scl(u8 val) {
     if (val) {
