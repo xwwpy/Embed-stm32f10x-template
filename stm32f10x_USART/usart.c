@@ -92,7 +92,7 @@ void USART1_IRQHandler(void) {
 		receive_buff[receive_idx] = USART_ReceiveData(USART1);
 		receive_idx ++;
 		if (receive_idx > 2 && receive_buff[receive_idx - 2] == '\r' && receive_buff[receive_idx - 1] == '\n') { // 说明接收数据结束
-            usart1_receive_data_callback((char *) receive_buff, receive_idx - 2);
+            usart1_receive_data_callback((char *) receive_buff, receive_idx - 2, USART1); // 调用回调函数处理接收到的数据
 			receive_idx = 0;
 		}
 	}
@@ -104,6 +104,6 @@ void USART1_IRQHandler(void) {
  * 
  * @return USART_FullInitTypeDef* 
  */
-USART_FullInitTypeDef* get_default_usart1_full_init_structure() {
+USART_FullInitTypeDef* get_default_usart1_full_init_structure(void) {
     return &default_usart_full_init_structure;
 }
