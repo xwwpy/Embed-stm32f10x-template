@@ -1,5 +1,5 @@
 #include "oled.h"
-// -32??????????????????????��?��?? ???????????????
+// -32就可以得到对应的字符在数组中的位置 适用于水平和页寻址模式
 
 void set_scl(u8 val) {
     if (val) {
@@ -310,38 +310,38 @@ const u8 OLED_Font[][16] =
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //~ 94
 };
 /**
- * @brief ??????????
+ * @brief 发射起始信号
  * 
  */
 void OLED_IIC_send_initial_info() {
-    // ??????????
+    // 先进入空闲状态
     set_scl(1);
     set_sda(1);
-    set_sda(0); // ?????????? 
-    set_scl(0); // ??????????? ??????????????????
+    set_sda(0); // 发送起始信号 
+    set_scl(0); // 准备发送数据 数据必须在低电平期间准备
 }
 
 void OLED_IIC_send_byte(u8 _data) {
     u8 i;
     for (i = 8; i > 0; i--) {
-        // IIC?��???????????????????????????
-        if ((_data & 0x80) == 0x00) { // ??????????
+        // IIC规定发送一个字节的数据的时候，从高到低发送
+        if ((_data & 0x80) == 0x00) { // 减少汇编的指令
             set_sda(0);
         } else {
             set_sda(1);
         }
         _data <<= 1;
-        set_scl(1); // ??1???��??
-        set_scl(0); // ??0??????��????
+        set_scl(1); // 置1进行读取
+        set_scl(0); // 置0准备下一位数据
     }
 }
 
 u8 OLED_IIC_receive_ack() {
     u8 ack;
-    set_sda(1); // ???SDA??????
-    set_scl(1); // ??1???��??
-    ack = get_sda(); // ?????????
-    set_scl(0); // ??0?????��????
+    set_sda(1); // 释放SDA数据线
+    set_scl(1); // 置1进行读取
+    ack = get_sda(); // 读取确认信号
+    set_scl(0); // 置0准备下位数据
     return ack;
 }
 
@@ -349,79 +349,79 @@ u8 OLED_IIC_receive_byte() {
     u8 i;
     u8 _data = 0;
     u8 cur_data;
-    set_sda(1); // ???SDA??????
+    set_sda(1); // 释放SDA数据线
     for (i = 8; i > 0; i--) {
-        set_scl(1); // ??1???��??
+        set_scl(1); // 置1进行读取
         cur_data = get_sda();
-        _data |= (cur_data << (i - 1)); // ??????????��
-        set_scl(0); // ??0?????��????
+        _data |= (cur_data << (i - 1)); // 读取一个数据位
+        set_scl(0); // 置0准备下位数据
     }
     return _data;
 }
 
 void OLED_IIC_send_ack(u8 ack) {
-    set_sda(ack); // ????ACK
-    set_scl(1); // ??1???��??
-    set_scl(0); // ??0?????��????
+    set_sda(ack); // 发送ACK
+    set_scl(1); // 置1进行读取
+    set_scl(0); // 置0准备下位数据
 }
 
 void OLED_IIC_send_stop() {
-    set_sda(0); // ????0 ???????????
-    set_scl(1); // ??1???��??
-    set_sda(1); // ?????????
+    set_sda(0); // 先置0 才能有停止信号
+    set_scl(1); // 置1进行读取
+    set_sda(1); // 发送停止信号
 }
 
 /**
- * @brief ???????? stable
+ * @brief 发送数据 stable
  * 
- * @param bytes ????
- * @param length ???????
+ * @param bytes 数据
+ * @param length 数据长度
  */
 void oled_write_data(u8* bytes, u8 length) {
     OLED_IIC_send_initial_info();
-    OLED_IIC_send_byte(OLED_ADDRESS); // ?????��???
-    OLED_IIC_receive_ack(); // ????ACK
-    OLED_IIC_send_byte(OLED_DATA_CONTINUE_MODE); // ?????????? co = 0, D/C# = 1
-    OLED_IIC_receive_ack(); // ????ACK
+    OLED_IIC_send_byte(OLED_ADDRESS); // 发送设备地址
+    OLED_IIC_receive_ack(); // 接收ACK
+    OLED_IIC_send_byte(OLED_DATA_CONTINUE_MODE); // 发送控制指令 co = 0, D/C# = 1
+    OLED_IIC_receive_ack(); // 接收ACK
     while (length--) {
         OLED_IIC_send_byte(*bytes);
-        OLED_IIC_receive_ack(); // ????ACK
+        OLED_IIC_receive_ack(); // 接收ACK
         bytes++;
     }
     OLED_IIC_send_stop();
 }
 
 /**
- * @brief ???????? stable
+ * @brief 发送命令 stable
  * 
- * @param command ????
- * @param length ??????
+ * @param command 命令
+ * @param length 命令长度
  */
 void oled_write_command(u8* command, u8 length) {
     OLED_IIC_send_initial_info();
-    OLED_IIC_send_byte(OLED_ADDRESS); // ?????��???
-    OLED_IIC_receive_ack(); // ????ACK
+    OLED_IIC_send_byte(OLED_ADDRESS); // 发送设备地址
+    OLED_IIC_receive_ack(); // 接收ACK
     OLED_IIC_send_byte(OLED_COMMAND_CONTINUE_MODE);
-    OLED_IIC_receive_ack(); // ????ACK
+    OLED_IIC_receive_ack(); // 接收ACK
     while (length--) {
         OLED_IIC_send_byte(*command);
-        OLED_IIC_receive_ack(); // ????ACK
+        OLED_IIC_receive_ack(); // 接收ACK
         command++;
     }
     OLED_IIC_send_stop();
 }
 
 /** 
- * @brief ??? oled stable
+ * @brief 清空 oled stable
  */
 void clear_oled() {
     fill_oled(0);
 }
 
 /**
- * @brief ????????? oled stable
+ * @brief 使用字符填充 oled stable
  * 
- * @param val ???? 0: ???0 1: ???1
+ * @param val 填充值 0: 填充0 1: 填充1
  */
 void fill_oled(u8 val) {
     if (val) {
@@ -432,9 +432,9 @@ void fill_oled(u8 val) {
 }
 
 /**
- * @brief ???????? stable
+ * @brief 设置地址模式 stable
  * 
- * @param mode ?????
+ * @param mode 目标模式
  */
 void oled_set_addressing_mode(u8 mode) {
     u8 cmds[2] = {OLED_SET_ADDRESSING_MODE, 0};
@@ -443,10 +443,10 @@ void oled_set_addressing_mode(u8 mode) {
 }
 
 /**
- * @brief ??????????????????????????????��?? stable
- * ????????????? ??????????????????????????????????????????????
- * @param start ????��?? ????7��
- * @param end   ?????��?? ????7��
+ * @brief 设置水平寻址和垂直寻址模式下的起始和结束的列地址 stable
+ * 对页寻址模式也有影响 如果设置了起始和终止地址之后再去使用页寻址的话，会出现问题
+ * @param start 起始列地址 只取低7位
+ * @param end   结束列地址 只取低7位
  */
 void oled_set_column_address(u8 start, u8 end)
 {
@@ -457,18 +457,18 @@ void oled_set_column_address(u8 start, u8 end)
 }
 
 /**
- * @brief ????��??
+ * @brief 恢复列地址
  * 
  */
 void reset_column_address() {
-    oled_set_column_address(0, OLED_MAX_COLUMN - 1); // ????��??
+    oled_set_column_address(0, OLED_MAX_COLUMN - 1); // 恢复列地址
 }
 
 /**
- * @brief ??????????????????????????????? stable
+ * @brief 设置水平和垂直寻址模式下的起始和结束的页地址 stable
  * 
- * @param start ??????? ????3��
- * @param end   ???????? ????3��
+ * @param start 起始页地址 只取低3位
+ * @param end   结束页地址 只取低3位
  */
 void oled_set_page_address(u8 start, u8 end) {
     u8 cmds[3] = {OLED_SET_PAGE_ADDRESS, 0, 0};
@@ -476,54 +476,63 @@ void oled_set_page_address(u8 start, u8 end) {
     cmds[2] = end & 0x07;
     oled_write_command(cmds, 3);
 }
+
 /**
- * @brief ?????????????��???????��
+ * @brief 恢复页地址
  * 
- * @param col ?��?? ????5��-7��
+ */
+void reset_page_address() {
+    oled_set_page_address(0, OLED_MAX_PAGE - 1); // 恢复页地址
+}
+
+/**
+ * @brief 设置页寻址模式下的列地址的高三位
+ * 
+ * @param col 列地址 只取第5位-7位
  */
 void oled_set_column_start_address_higher_nibble(u8 col) {
     u8 cmd = 0x10 | ((col & 0x70) >> 4);
     oled_write_command(&cmd, 1);
 }
 /**
- * @brief ???????????????? stable
+ * @brief 设置页寻址模式下的页地址 stable
  * 
- * @param page ???? ????3�� 
+ * @param page 页地址 只取低3位 
  */
 void oled_set_start_page_address(u8 page) {
     u8 cmd = 0xB0 | (page & 0x07);
     oled_write_command(&cmd, 1);
 }
 /**
- * @brief ????????????page??????��?? stable
+ * @brief 设置页寻址模式下的page和起始列地址 stable
  * 
- * @param page ???? ????3��
- * @param col ?��?? ????7��
+ * @param page 页地址 只取低3位
+ * @param col 列地址 只取低7位
  */
 void oled_set_page_address_start_column_and_page(u8 page, u8 col) {
     u8 cmds[3];
-    cmds[0] = 0xB0 | (page & 0x07); // ????????
-    cmds[1] = 0x00 | (col & 0x0F); // ?????4��?��??
-    cmds[2] = 0x10 | ((col & 0x70) >> 4); // ?????3��?��??
+    cmds[0] = 0xB0 | (page & 0x07); // 设置页地址
+    cmds[1] = 0x00 | (col & 0x0F); // 设置低4位列地址
+    cmds[2] = 0x10 | ((col & 0x70) >> 4); // 设置高3位列地址
     oled_write_command(cmds, 3);
 }
 
 /**
- * @brief ?????????????��?? stable
+ * @brief 设置页寻址模式下的列地址 stable
  * 
- * @param col ?��?? ????7��
+ * @param col 列地址 只取低7位
  */
 void oled_set_page_address_start_column(u8 col) {
     u8 cmds[2];
-    cmds[0] = 0x00 | (col & 0x0F); // ?????4��?��??
-    cmds[1] = 0x10 | ((col & 0x70) >> 4); // ?????3��?��??
+    cmds[0] = 0x00 | (col & 0x0F); // 设置低4位列地址
+    cmds[1] = 0x10 | ((col & 0x70) >> 4); // 设置高3位列地址
     oled_write_command(cmds, 2);
 }
 
 /**
- * @brief ?????????????��???????�� stable
+ * @brief 设置页寻址模式下的列地址的低四位 stable
  * 
- * @param col ?��?? ????4��
+ * @param col 列地址 只取低4位
  */
 void oled_set_column_start_address_lower_nibble(u8 col) {
     u8 cmd = 0x00 | (col & 0x0F);
@@ -531,8 +540,8 @@ void oled_set_column_start_address_lower_nibble(u8 col) {
 }
 
 /**
- * @brief ?????? remap stable
- * @param remap 0: ???? 1: ????
+ * @brief 设置列 remap stable
+ * @param remap 0: 正向 1: 反向
  */
 void oled_set_column_remap(u8 remap) {
     u8 cmd;
@@ -545,8 +554,8 @@ void oled_set_column_remap(u8 remap) {
 }
 
 /**
- * @brief ????????��?? stable
- * @param remap 0: ???? 1: ????
+ * @brief 设置行扫描方向 stable
+ * @param remap 0: 正向 1: 反向
  */
 void oled_set_row_scan_direction(u8 remap) {
     u8 cmd;
@@ -559,8 +568,8 @@ void oled_set_row_scan_direction(u8 remap) {
 }
 
 /**
- * @brief ????????? stable
- * @param mode 0: ??????? 1: ??????
+ * @brief 设置显示模式 stable
+ * @param mode 0: 正常显示 1: 反色显示
  */
 void oled_set_display_mod(u8 mode) {
     u8 cmd;
@@ -573,7 +582,7 @@ void oled_set_display_mod(u8 mode) {
 }
 
 /**
- * @brief ??????? stable
+ * @brief 打开显示屏 stable
  * 
  */
 void oled_display_on() {
@@ -581,7 +590,7 @@ void oled_display_on() {
     oled_write_command(&cmd, 1);
 }
 /**
- * @brief ???????? stable
+ * @brief 关闭显示屏 stable
  * 
  */
 void oled_display_off() {
@@ -590,7 +599,7 @@ void oled_display_off() {
 }
 
 /**
- * @brief ???��??? stable
+ * @brief 启用充电泵 stable
  * 
  */
 void oled_enable_charge_pump() {
@@ -600,31 +609,31 @@ void oled_enable_charge_pump() {
 
 
 /**
- * @brief ????��?????? ????????????????????? stable
- * @param bytes ???????
- * @param r_len ????
- * @param c_len ????
- * @param start_p_x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param start_p_y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @brief 批量写入数据 只适用于水平寻址模式和垂直寻址模式 stable
+ * @param bytes 数据指针
+ * @param r_len 行数
+ * @param c_len 列数
+ * @param start_p_x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param start_p_y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
  */
 void oled_write_datas(u8* bytes, u8 r_len, u8 c_len, u8 start_p_x, u8 start_p_y) {
-    // ?????��????????
+    // 设置列地址和页地址
     oled_set_column_address(start_p_x, start_p_x + c_len - 1);
     oled_set_page_address(start_p_y, start_p_y + r_len - 1);
     oled_write_data(bytes, r_len * c_len);
 }
 
 /**
- * @brief ???????????��?????????? ???????????????????? stable
- * @param c ???
- * @param p_x ?????????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param p_y ?????????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @brief 按默认的字符大小进行显示字符 适用于水平寻址模式和垂直寻址模式 stable
+ * @param c 字符
+ * @param p_x 显示的起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param p_y 显示的起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
  */
 void oled_default_show_char(u8 chr, u8 p_x, u8 p_y) {
     u8 default_char_page_size = OLED_DEFAULT_ROW_SIZE / 8;
-    // ????????????????
+    // 设置寻址方式为水平寻址模式
     oled_set_addressing_mode(OLED_HORIZONTAL_ADDRESSING_MODE);
-    // ?????��????????
+    // 设置列地址和页地址
     oled_set_column_address(p_x * OLED_DEFAULT_COLUMN_SIZE, p_x * OLED_DEFAULT_COLUMN_SIZE + OLED_DEFAULT_COLUMN_SIZE - 1);
     oled_set_page_address(p_y * default_char_page_size, p_y * default_char_page_size + default_char_page_size - 1);
     oled_write_data(get_char_data_pointer(chr), OLED_DEFAULT_COLUMN_SIZE * default_char_page_size);
@@ -633,12 +642,12 @@ void oled_default_show_char(u8 chr, u8 p_x, u8 p_y) {
 
 
 /**
- * @brief ?????��?????????? ???????????��??��???? stable
+ * @brief 在指定位置显示字符串 如果超出屏幕列的范围则截断 stable
  * 
- * @param x ?????????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ?????????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param str ????????
- * @param len ????????? ????????????
+ * @param x 显示的起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 显示的起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param str 字符串指针
+ * @param len 字符串长度 不包含结束符
  */
 void oled_default_show_string_with_cut(u8 x, u8 y, u8* str, u8 len) {
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -649,9 +658,9 @@ void oled_default_show_string_with_cut(u8 x, u8 y, u8* str, u8 len) {
     if (x >= max_col) {
         return;
     }
-    // ???????????page ?? column
+    // 计算需要占用的page 和 column
     if (x + len > max_col) {
-        len = max_col - x; // ?????????????
+        len = max_col - x; // 得到截断之后的长度
     }
     while (len) {
         oled_default_show_char(*str++, x++, y);
@@ -661,12 +670,12 @@ void oled_default_show_string_with_cut(u8 x, u8 y, u8* str, u8 len) {
 }
 
 /**
- * @brief ?????��?????????? ????????��??��???? stable
- * ??????????????????�� ?????
- * @param x ?????????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ?????????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param str ????????
- * @param len ????????? ????????????
+ * @brief 在指定位置显示字符串 超出屏幕列的范围则换行 stable
+ * 如果超过了最大的显示范围 则不显示
+ * @param x 显示的起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 显示的起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param str 字符串指针
+ * @param len 字符串长度 不包含结束符
  */
 void oled_default_show_string_with_no_cut(u8 x, u8 y, u8* str, u8 len) {
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -679,9 +688,9 @@ void oled_default_show_string_with_no_cut(u8 x, u8 y, u8* str, u8 len) {
     if (x >= max_col) {
         return;
     }
-    // ???????????page ?? column
+    // 计算需要占用的page 和 column
     if (x + len > max_col) {
-        len = max_col - x; // ?????????????
+        len = max_col - x; // 得到截断之后的长度
     }
     
     for (; i < len; i++) {
@@ -689,16 +698,16 @@ void oled_default_show_string_with_no_cut(u8 x, u8 y, u8* str, u8 len) {
         str += 1;
     }
     if (len < original_len) {
-        oled_default_show_string_with_no_cut(0, y + 1, str, original_len - len); // ?????? ??????
+        oled_default_show_string_with_no_cut(0, y + 1, str, original_len - len); // 递归调用 实现换行
     }
 }
 /**
- * @brief ?????????????????????? ???????????��??��???? stable
+ * @brief 基于页寻址的字符串显示优化版 如果超出屏幕列的范围则截断 stable
  * 
- * @param x ?????????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ?????????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param str ????????
- * @param len ????????? ????????????
+ * @param x 显示的起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 显示的起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param str 字符串指针
+ * @param len 字符串长度 不包含结束符
  */
 void oled_default_show_string_with_cut_better(u8 x, u8 y, u8 *str, u8 len) {
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -707,36 +716,36 @@ void oled_default_show_string_with_cut_better(u8 x, u8 y, u8 *str, u8 len) {
     u8 i = 0;
     u8 j = 0;
     u8* iter_str = str;
-    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // ??????????
+    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // 设置为页寻址模式
     if (y >= max_row) {
         return;
     }
     if (x >= max_col) {
         return;
     }
-    // ???????????page ?? column
+    // 计算需要占用的page 和 column
     if (x + len > max_col) {
-        len = max_col - x; // ?????????????
+        len = max_col - x; // 得到截断之后的长度
     }
     oled_set_page_address_start_column(x * OLED_DEFAULT_COLUMN_SIZE);
     for (; i < default_char_page_size; i++) {
-        oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // ???��???????
+        oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // 设置部分页地址
         for (; j < len; j++) {
             oled_write_data(get_char_data_pointer(*iter_str) + i * OLED_DEFAULT_COLUMN_SIZE, OLED_DEFAULT_COLUMN_SIZE);
             iter_str += 1;
         }
         j = 0;
-        iter_str = str; // ????????????
+        iter_str = str; // 重置字符串指针
     }
 }
 
 /**
- * @brief ?????????????????????? ???????????��??��???? stable
- * ??????????????????????????????��???????????????????��???��??��??????
- * @param x ?????????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ?????????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param str ????????
- * @param len ????????? ????????????
+ * @brief 基于页寻址的字符串显示优化版 如果超出屏幕列的范围则换行 stable
+ * 如果字符串的长度超过了屏幕最大的显示范围，由于溢出的原因，会从第一行第一列进行覆盖显示
+ * @param x 显示的起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 显示的起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param str 字符串指针
+ * @param len 字符串长度 不包含结束符
  */
 void oled_default_show_string_with_no_cut_better(u8 x, u8 y, u8 *str, u8 len) {
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -747,7 +756,7 @@ void oled_default_show_string_with_no_cut_better(u8 x, u8 y, u8 *str, u8 len) {
     u8* iter_str;
     u8 original_len = len;
     u8 display_len = 0;
-    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // ??????????
+    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // 设置为页寻址模式
     if (y >= max_row) {
         return;
     }
@@ -757,31 +766,31 @@ void oled_default_show_string_with_no_cut_better(u8 x, u8 y, u8 *str, u8 len) {
     while (len != 0) {
         
         if (x + len > max_col) {
-            len = max_col - x; // ?????????????
+            len = max_col - x; // 得到截断之后的长度
         }
-        for (i = 0; i < default_char_page_size; i++) { // ????????????
-            iter_str = str; // ????????????
-            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // ???????????????��??
-            for (j = 0; j < len; j++) { // ???��??
+        for (i = 0; i < default_char_page_size; i++) { // 循环该行占用的页
+            iter_str = str; // 重置字符串指针
+            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // 设置页地址以及起始列地址
+            for (j = 0; j < len; j++) { // 循环写入
                 oled_write_data(get_char_data_pointer(*iter_str) + i * OLED_DEFAULT_COLUMN_SIZE, OLED_DEFAULT_COLUMN_SIZE);
                 iter_str += 1;
             }
-        } // ??��?????��?????
-        display_len += len; // ???????????????
-        str += len; // ???????????
-        len = original_len - display_len; // ???��??????????
-        y += 1; // ????
-        x = 0; // ?????��??
+        } // 每行的输入写入完成
+        display_len += len; // 累计已显示的字符数
+        str += len; // 移动字符串指针
+        len = original_len - display_len; // 剩余未显示的字符数
+        y += 1; // 换行
+        x = 0; // 重置列地址
 
     }
 }
 /**
- * @brief ?????????? stable
- * ????????��??��????
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param num ?????????? ?????2147483647
- * @param len ??????????????
+ * @brief 显示十进制数 stable
+ * 超出屏幕列的范围则截断
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param num 要显示的数字 最大值为2147483647
+ * @param len 要显示的数字的长度
  */
 void oled_default_show_number_with_cut(u8 x, u8 y, uint32_t num, u8 len) {
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -792,9 +801,9 @@ void oled_default_show_number_with_cut(u8 x, u8 y, uint32_t num, u8 len) {
     if (x >= max_col) {
         return;
     }
-    // ???????????page ?? column
+    // 计算需要占用的page 和 column
     if (x + len > max_col) {
-        len = max_col - x; // ?????????????
+        len = max_col - x; // 得到截断之后的长度
     }
     while (len) {
         oled_default_show_char((u8) ((num / pow(10, len - 1)) % 10) + 48, x++, y);
@@ -803,12 +812,12 @@ void oled_default_show_number_with_cut(u8 x, u8 y, uint32_t num, u8 len) {
 }
 
 /**
- * @brief ?????????? stable
- * ???????????????????��??��????
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param num ?????????? 2147483647
- * @param len ??????????????
+ * @brief 显示十进制数 stable
+ * 显示的数字长度超出屏幕列的范围则换行
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param num 要显示的数字 2147483647
+ * @param len 要显示的数字的长度
  */
 void oled_default_show_number_with_no_cut(u8 x, u8 y, uint32_t num, u8 len) {
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -821,26 +830,26 @@ void oled_default_show_number_with_no_cut(u8 x, u8 y, uint32_t num, u8 len) {
     if (x >= max_col) {
         return;
     }
-    // ???????????page ?? column
+    // 计算需要占用的page 和 column
     if (x + len > max_col) {
-        len = max_col - x; // ?????????????
+        len = max_col - x; // 得到截断之后的长度
     }
     
     for (; i <= len; i++) {
         oled_default_show_char((u8) ((num / pow(10, original_len - i)) % 10) + 48, x++, y);
     }
     if (len < original_len) {
-        oled_default_show_number_with_no_cut(0, y + 1, num, original_len - len); // ?????? ??????
+        oled_default_show_number_with_no_cut(0, y + 1, num, original_len - len); // 递归调用 实现换行
     }
 }
 
 /**
- * @brief ?????????? ???????? stable
- * ???????????????????��??��????
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param num ?????????? 2147483647
- * @param len ??????????????
+ * @brief 显示十进制数 使用页寻址模式 stable
+ * 显示的数字长度超出屏幕列的范围则截断
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param num 要显示的数字 2147483647
+ * @param len 要显示的数字的长度
  */
 void oled_default_show_number_with_cut_better(u8 x, u8 y, uint32_t num, u8 len) { 
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -849,20 +858,20 @@ void oled_default_show_number_with_cut_better(u8 x, u8 y, uint32_t num, u8 len) 
     u8 original_len = len;
     u8 i = 0;
     u8 j = 0;
-    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // ??????????
+    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // 设置为页寻址模式
     if (y >= max_row) {
         return;
     }
     if (x >= max_col) {
         return;
     }
-    // ???????????page ?? column
+    // 计算需要占用的page 和 column
     if (x + len > max_col) {
-        len = max_col - x; // ?????????????
+        len = max_col - x; // 得到截断之后的长度
     }
     oled_set_page_address_start_column(x * OLED_DEFAULT_COLUMN_SIZE);
     for (; i < default_char_page_size; i++) {
-        oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // ???��???????
+        oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // 设置部分页地址
         for (j = 0; j < len; j++) {
             oled_write_data(get_char_data_pointer((u8) ((num / pow(10, original_len - 1 - j)) % 10) + 48) + i * OLED_DEFAULT_COLUMN_SIZE, OLED_DEFAULT_COLUMN_SIZE);
         }
@@ -870,12 +879,12 @@ void oled_default_show_number_with_cut_better(u8 x, u8 y, uint32_t num, u8 len) 
 }
 
 /**
- * @brief ?????????? ???????? stable
- * ????????��??��????
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param num ?????????? 2147483647
- * @param len ??????????????
+ * @brief 显示十进制数 使用页寻址模式 stable
+ * 超出屏幕列的范围则换行
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param num 要显示的数字 2147483647
+ * @param len 要显示的数字的长度
  */
 void oled_default_show_number_with_no_cut_better(u8 x, u8 y, uint32_t num, u8 len) { 
     u8 max_row = OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8);
@@ -885,7 +894,7 @@ void oled_default_show_number_with_no_cut_better(u8 x, u8 y, uint32_t num, u8 le
     u8 j = 0;
     u8 original_len = len;
     u8 display_len = 0;
-    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // ??????????
+    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // 设置为页寻址模式
     if (y >= max_row) {
         return;
     }
@@ -894,28 +903,28 @@ void oled_default_show_number_with_no_cut_better(u8 x, u8 y, uint32_t num, u8 le
     }
     while (len) {
         if (x + len > max_col) {
-            len = max_col - x; // ?????????????
+            len = max_col - x; // 得到截断之后的长度
         }
-        for (i = 0; i < default_char_page_size; i++) { // ????????????
-            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // ???????????????��??
-            for (j = 0; j < len; j++) { // ???��??
+        for (i = 0; i < default_char_page_size; i++) { // 循环该行占用的页
+            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // 设置页地址以及起始列地址
+            for (j = 0; j < len; j++) { // 循环写入
                 oled_write_data(get_char_data_pointer((u8) ((num / pow(10, original_len - display_len - 1 - j)) % 10) + 48) + i * OLED_DEFAULT_COLUMN_SIZE, OLED_DEFAULT_COLUMN_SIZE);
             }
-        } // ??��?????��?????
-        display_len += len; // ?????????????
-        len = original_len - display_len; // ???��????????
-        y += 1; // ????
-        x = 0; // ?????��??
+        } // 每行的输入写入完成
+        display_len += len; // 累计已显示的长度
+        len = original_len - display_len; // 剩余未显示的长度
+        y += 1; // 换行
+        x = 0; // 重置列地址
     }
 }
 
 /**
- * @brief ????��?????
+ * @brief 显示有符号数
  * 
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param num ??????????
- * @param len ??????????????????????????
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param num 要显示的数字
+ * @param len 要显示的数字的长度（不包含负号）
  */
 void oled_show_number(u8 x, u8 y, int32_t num, u8 len) {
     if (num >= 0) {
@@ -927,31 +936,31 @@ void oled_show_number(u8 x, u8 y, int32_t num, u8 len) {
 }
 
 /**
- * @brief ???????? stable
- * ?????????????????????��??��???? ????��????????
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param str ???????????
- * @param len ????????????????
+ * @brief 显示字符串 stable
+ * 显示的字符串长度超出屏幕列的范围则换行 简化调用函数的签名
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param str 要显示的字符串
+ * @param len 要显示的字符串的长度
  */
 void oled_show_string(u8 x, u8 y, u8* str, u8 len) { 
     oled_default_show_string_with_no_cut_better(x, y, str, len);
 }
 
 /**
- * @brief ????????? stable
+ * @brief 显示浮点数 stable
  * 
- * @param x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
- * @param num ??????????
- * @param len ??????��???????????????
- * @param dot_len ??????��??????????
+ * @param x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @param num 要显示的数字
+ * @param len 要显示的小数的整数部分长度
+ * @param dot_len 要显示的小数部分的精度
  */
 void oled_show_float_number(u8 x, u8 y, float num, u8 len, u8 dot_len) {
     u8 next_row;
     u8 next_col;
     oled_show_number(x, y, (int32_t) num, len);
-    // ???????��?????��??
+    // 计算显示小数点的位置
     get_next_row_and_col(&next_row, &next_col, y, x, len, OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8), OLED_MAX_COLUMN / OLED_DEFAULT_COLUMN_SIZE);
     oled_default_show_char('.', next_col, next_row);
     get_next_row_and_col(&next_row, &next_col, next_row, next_col, 1, OLED_MAX_PAGE / (OLED_DEFAULT_ROW_SIZE / 8), OLED_MAX_COLUMN / OLED_DEFAULT_COLUMN_SIZE);
@@ -959,15 +968,15 @@ void oled_show_float_number(u8 x, u8 y, float num, u8 len, u8 dot_len) {
 }
 
 /**
- * @brief Get the next row and col?????????
+ * @brief Get the next row and col的辅助函数
  * 
- * @param next_row ??????????????????��???????
- * @param next_col ??????????????????��???????
- * @param start_row ????? 
- * @param start_col ??
- * @param display_len ?????????
- * @param max_row ?????
- * @param max_col ?????
+ * @param next_row 显示了指定长度之后下次写入新的行
+ * @param next_col 显示了指定长度之后下次写入新的列
+ * @param start_row 开始行 
+ * @param start_col 列
+ * @param display_len 显示了的长度
+ * @param max_row 最大行
+ * @param max_col 最大列
  */
 void get_next_row_and_col(u8* next_row, u8* next_col, u8 start_row, u8 start_col, u8 display_len, u8 max_row, u8 max_col) { 
     u8 temp = start_col + display_len;
@@ -983,68 +992,69 @@ void get_next_row_and_col(u8* next_row, u8* next_col, u8 start_row, u8 start_col
     }
 }
 
-// ???????????????? stable
+// 实现字符数据获取函数 stable
 u8* get_char_data_pointer(u8 chr) {
     return (u8*) OLED_Font[chr - 32];
 }
 
 
 /**
- * @brief ?????????? ???????????????????? stable
- * @param c ???????
- * @param r_len ????
- * @param c_len ????
- * @param start_p_x ????? 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
- * @param start_p_y ????? 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
+ * @brief 批量填充字符 适用于水平寻址模式和垂直寻址模式 stable
+ * @param c 填充的字符
+ * @param r_len 行数
+ * @param c_len 列数
+ * @param start_p_x 起始列 0 ~ (128 / OLED_DEFAULT_COLUMN_SIZE) - 1
+ * @param start_p_y 起始行 0 ~ (64 / OLED_DEFAULT_ROW_SIZE) - 1
  */
 void fill_oled_with_char(u8 chr, u8 r_len, u8 c_len, u8 start_p_x, u8 start_p_y, u8 mode) {
     uint16_t length = c_len * r_len;
-    // ?????????
+    // 设置寻址方式
     oled_set_addressing_mode(mode);
-    // ?????��????????
+    // 设置列地址和页地址
     oled_set_column_address(start_p_x, start_p_x + c_len - 1);
     oled_set_page_address(start_p_y, start_p_y + r_len - 1);
-    // ?????????
+    // 执行填充操作
     OLED_IIC_send_initial_info();
-    OLED_IIC_send_byte(OLED_ADDRESS); // ?????��???
-    OLED_IIC_receive_ack(); // ????ACK
-    OLED_IIC_send_byte(OLED_DATA_CONTINUE_MODE); // ?????????? co = 0, D/C# = 1
-    OLED_IIC_receive_ack(); // ????ACK
+    OLED_IIC_send_byte(OLED_ADDRESS); // 发送设备地址
+    OLED_IIC_receive_ack(); // 接收ACK
+    OLED_IIC_send_byte(OLED_DATA_CONTINUE_MODE); // 发送控制指令 co = 0, D/C# = 1
+    OLED_IIC_receive_ack(); // 接收ACK
     while (length--) {
         OLED_IIC_send_byte(chr);
-        OLED_IIC_receive_ack(); // ????ACK
+        OLED_IIC_receive_ack(); // 接收ACK
     }
     OLED_IIC_send_stop();
     reset_column_address();
+    reset_page_address();
 }
 
 /**
- * @brief ?????OLED stable
+ * @brief 初始化OLED stable
  * 
  */
 void oled_init() {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 	
 	GPIO_InitTypeDef GPIO_InitStructure;
- 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD; // ????????????? ??????I2C��?????
+ 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD; // 设置为开漏输出模式 以满足I2C协议要求
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
  	GPIO_Init(GPIOB, &GPIO_InitStructure);
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
  	GPIO_Init(GPIOB, &GPIO_InitStructure);
     u8 init_command[] = {
-        OLED_DISPLAY_OFF, // ??????
-        OLED_SET_ROW_REVERSE_SCAN_DIRECTION, // ???????????
-        OLED_SET_COLUMN_REMAP_REMAP, // ???????????
-        OLED_CHARGE_PUMP_ENABLE, // ???��??? ????????
-        OLED_DISPLAY_ON // ?????
+        OLED_DISPLAY_OFF, // 关闭显示
+        OLED_SET_ROW_REVERSE_SCAN_DIRECTION, // 设置行重映射
+        OLED_SET_COLUMN_REMAP_REMAP, // 设置列重映射
+        OLED_CHARGE_PUMP_ENABLE, // 启用充电泵 两个命令
+        OLED_DISPLAY_ON // 打开显示
     };
     oled_write_command(init_command, 6);
     clear_oled();
 }
 
 /**
- * @brief ??????????? todo
+ * @brief 显示二进制数 todo
  * 
  * @param x 
  * @param y 
@@ -1059,7 +1069,7 @@ void oled_show_binary_number(u8 x, u8 y, uint32_t num, u8 len) {
     u8 j = 0;
     u8 original_len = len;
     u8 display_len = 0;
-    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // ??????????
+    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // 设置为页寻址模式
     if (y >= max_row) {
         return;
     }
@@ -1068,23 +1078,23 @@ void oled_show_binary_number(u8 x, u8 y, uint32_t num, u8 len) {
     }
     while (len) {
         if (x + len > max_col) {
-            len = max_col - x; // ?????????????
+            len = max_col - x; // 得到截断之后的长度
         }
-        for (i = 0; i < default_char_page_size; i++) { // ????????????
-            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // ???????????????��??
-            for (j = 0; j < len; j++) { // ???��??
+        for (i = 0; i < default_char_page_size; i++) { // 循环该行占用的页
+            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // 设置页地址以及起始列地址
+            for (j = 0; j < len; j++) { // 循环写入
                 oled_write_data(get_char_data_pointer((u8) ((num / pow(2, original_len - display_len - 1 - j)) % 2) + 48) + i * OLED_DEFAULT_COLUMN_SIZE, OLED_DEFAULT_COLUMN_SIZE);
             }
-        } // ??��?????��?????
-        display_len += len; // ?????????????
-        len = original_len - display_len; // ???��????????
-        y += 1; // ????
-        x = 0; // ?????��??
+        } // 每行的输入写入完成
+        display_len += len; // 累计已显示的长度
+        len = original_len - display_len; // 剩余未显示的长度
+        y += 1; // 换行
+        x = 0; // 重置列地址
     }
 }
 
 /**
- * @brief ???????????? todo
+ * @brief 显示十六进制数 todo
  * 
  * @param x 
  * @param y 
@@ -1105,7 +1115,7 @@ void oled_show_hex_number(u8 x, u8 y, uint32_t num, u8 len) {
     oled_show_string(x, y, "0x", 2);
     x = next_col;
     y = next_row;
-    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // ??????????
+    oled_set_addressing_mode(OLED_PAGE_ADDRESSING_MODE); // 设置为页寻址模式
     if (y >= max_row) {
         return;
     }
@@ -1114,11 +1124,11 @@ void oled_show_hex_number(u8 x, u8 y, uint32_t num, u8 len) {
     }
     while (len) {
         if (x + len > max_col) {
-            len = max_col - x; // ?????????????
+            len = max_col - x; // 得到截断之后的长度
         }
-        for (i = 0; i < default_char_page_size; i++) { // ????????????
-            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // ???????????????��??
-            for (j = 0; j < len; j++) { // ???��??
+        for (i = 0; i < default_char_page_size; i++) { // 循环该行占用的页
+            oled_set_page_address_start_column_and_page(y * default_char_page_size + i, x * OLED_DEFAULT_COLUMN_SIZE); // 设置页地址以及起始列地址
+            for (j = 0; j < len; j++) { // 循环写入
                 u8 tmp = (num / pow(16, original_len - display_len - 1 - j)) % 16;
                 if (tmp < 10) {
                     tmp += 48;
@@ -1127,10 +1137,10 @@ void oled_show_hex_number(u8 x, u8 y, uint32_t num, u8 len) {
                 }
                 oled_write_data(get_char_data_pointer(tmp) + i * OLED_DEFAULT_COLUMN_SIZE, OLED_DEFAULT_COLUMN_SIZE);
             }
-        } // ??��?????��?????
-        display_len += len; // ?????????????
-        len = original_len - display_len; // ???��????????
-        y += 1; // ????
-        x = 0; // ?????��??
+        } // 每行的输入写入完成
+        display_len += len; // 累计已显示的长度
+        len = original_len - display_len; // 剩余未显示的长度
+        y += 1; // 换行
+        x = 0; // 重置列地址
     }
 }
