@@ -1,2 +1,6 @@
 Objects/*
 template.*
+.vscode/*
+Listings/*
+RTE/*
+DebugConfig/*
