@@ -5,6 +5,13 @@
 // 注意在GDDRAM中的每一页的每一个字节是从低位到高位排列
 
 
+typedef struct  {
+    GPIO_TypeDef * GPIOx; // 使用哪一个GPIO外设
+    uint16_t scl_pin; // SCL引脚
+    uint16_t sda_pin; // SDA引脚
+} OLED_InitTypeDef;
+
+
 #define OLED_ADDRESS 0x78 // OLED 设备地址
 // OLED 控制命令
 #define OLED_DATA_CONTINUE_MODE 0x40 // Co = 0, D/C# = 1 连续数据模式
@@ -106,7 +113,7 @@ void oled_write_command(u8* command, u8 length);
  * @brief OLED 初始化
  * 
  */
-void oled_init(void);
+void oled_init(OLED_InitTypeDef* init_config);
 void clear_oled(void);
 void fill_oled(u8 val);
 void fill_oled_with_char(u8 chr, u8 r_len, u8 c_len, u8 start_p_x, u8 start_p_y, u8 mode);

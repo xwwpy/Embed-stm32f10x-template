@@ -1,25 +1,28 @@
 #include "oled.h"
 // -32就可以得到对应的字符在数组中的位置 适用于水平和页寻址模式
 
+static uint32_t scl_pin;
+static uint32_t sda_pin;
+
 void set_scl(u8 val) {
     if (val) {
-        GPIO_SetBits(GPIOB, GPIO_Pin_8);
+        GPIO_SetBits(GPIOB, scl_pin);
     } else {
-        GPIO_ResetBits(GPIOB, GPIO_Pin_8);
+        GPIO_ResetBits(GPIOB, scl_pin);
     }
 }
 
 void set_sda(u8 val) {
     if (val) {
-        GPIO_SetBits(GPIOB, GPIO_Pin_9);
+        GPIO_SetBits(GPIOB, sda_pin);
     } else {
-        GPIO_ResetBits(GPIOB, GPIO_Pin_9);
+        GPIO_ResetBits(GPIOB, sda_pin);
     }
 }
 
 
 u8 get_sda() {
-    return GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_9);
+    return GPIO_ReadInputDataBit(GPIOB, sda_pin);
 }
 
 const u8 OLED_Font[][16] =
@@ -1032,16 +1035,38 @@ void fill_oled_with_char(u8 chr, u8 r_len, u8 c_len, u8 start_p_x, u8 start_p_y,
  * @brief 初始化OLED stable
  * 
  */
-void oled_init() {
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-	
+void oled_init(OLED_InitTypeDef* init_config) {
+    if (init_config->GPIOx == GPIOA) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    }
+    else if (init_config->GPIOx == GPIOB) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+    }
+    else if (init_config->GPIOx == GPIOC) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+    }
+    else if (init_config->GPIOx == GPIOD) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
+    }
+    else if (init_config->GPIOx == GPIOE) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
+    }
+    else if (init_config->GPIOx == GPIOF) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOF, ENABLE);
+    }
+    else if (init_config->GPIOx == GPIOG) {
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOG, ENABLE);
+    }
+
 	GPIO_InitTypeDef GPIO_InitStructure;
  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD; // 设置为开漏输出模式 以满足I2C协议要求
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
- 	GPIO_Init(GPIOB, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
- 	GPIO_Init(GPIOB, &GPIO_InitStructure);
+	GPIO_InitStructure.GPIO_Pin = init_config->scl_pin;
+    scl_pin = init_config->scl_pin; // 将SCL引脚号保存到全局变量中
+ 	GPIO_Init(init_config->GPIOx, &GPIO_InitStructure);
+	GPIO_InitStructure.GPIO_Pin = init_config->sda_pin;
+    sda_pin = init_config->sda_pin; // 将SDA引脚号保存到全局变量中
+ 	GPIO_Init(init_config->GPIOx, &GPIO_InitStructure);
     u8 init_command[] = {
         OLED_DISPLAY_OFF, // 关闭显示
         OLED_SET_ROW_REVERSE_SCAN_DIRECTION, // 设置行重映射
